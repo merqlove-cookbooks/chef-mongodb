@@ -37,7 +37,16 @@ class Chef::ResourceDefinitionList::MongoDB
       end
     end
 
-    connection = get_connection('localhost', node['mongodb']['port'], :op_timeout => 5, :slave_ok => true)
+    begin
+      connection = nil
+      rescue_connection_failure do
+        connection = Mongo::Connection.new('localhost', node['mongodb']['port'], :op_timeout => 5, :slave_ok => true)
+        connection.database_names # check connection
+      end
+    rescue Exception => e
+      Chef::Log.warn("Could not connect to database: 'localhost:#{node['mongodb']['port']}', reason: #{e}")
+      return
+    end
 
     # Want the node originating the connection to be included in the replicaset
     members << node unless members.any? {|m| m.name == node.name }
@@ -142,13 +151,13 @@ class Chef::ResourceDefinitionList::MongoDB
           # reconfiguring destroys exisiting connections, reconnect
           connection = Mongo::Connection.new('localhost', node['mongodb']['port'], :op_timeout => 5, :slave_ok => true)
           config = connection['local']['system']['replset'].find_one({"_id" => name})
-		  		  # Validate configuration change 
-		  if config['members'] == rs_members
-			Chef::Log.info("New config successfully applied: #{config.inspect}")
-		  else
-			Chef::Log.error("Failed to apply new config. Current config: #{config.inspect} Target config #{rs_members}")
-			return
-		  end
+                                    # Validate configuration change 
+                  if config['members'] == rs_members
+                        Chef::Log.info("New config successfully applied: #{config.inspect}")
+                  else
+                        Chef::Log.error("Failed to apply new config. Current config: #{config.inspect} Target config #{rs_members}")
+                        return
+                  end
         end
         if !result.fetch("errmsg", nil).nil?
           Chef::Log.error("configuring replicaset returned: #{result.inspect}")
@@ -236,7 +245,12 @@ class Chef::ResourceDefinitionList::MongoDB
     end
     Chef::Log.info(shard_members.inspect)
 
-    connection = get_connection('localhost', node['mongodb']['port'], :op_timeout => 5)
+    begin
+      connection = Mongo::Connection.new('localhost', node['mongodb']['port'], :op_timeout => 5)
+    rescue Exception => e
+      Chef::Log.warn("Could not connect to database: 'localhost:#{node['mongodb']['port']}', reason #{e}")
+      return
+    end
 
     admin = connection['admin']
 
@@ -253,7 +267,16 @@ class Chef::ResourceDefinitionList::MongoDB
   end
 
   def self.configure_sharded_collections(node, sharded_collections)
-    connection = get_connection('localhost', node['mongodb']['port'], :op_timeout => 5)
+    # lazy require, to move loading this modules to runtime of the cookbook
+    require 'rubygems'
+    require 'mongo'
+
+    begin
+      connection = Mongo::Connection.new('localhost', node['mongodb']['port'], :op_timeout => 5)
+    rescue Exception => e
+      Chef::Log.warn("Could not connect to database: 'localhost:#{node['mongodb']['port']}', reason #{e}")
+      return
+    end
 
     admin = connection['admin']
 
@@ -322,8 +345,18 @@ class Chef::ResourceDefinitionList::MongoDB
 
   # User interface
   def self.configure_user(node, username, password, database, delete = false)
-    connection = get_connection('localhost', node['mongodb']['port'], :op_timeout => 5)
-    database = connection.db(database)
+    # lazy require, to move loading this modules to runtime of the cookbook
+    require 'rubygems'
+    require 'mongo'
+    
+    begin
+      connection = Mongo::Connection.new('localhost', node['mongodb']['port'], :op_timeout => op_timeout)
+      database = connection.db(database)
+    rescue Exception => e
+      Chef::Log.warn("Could not connect to database: '#{host}:#{port}', reason #{e}")
+      return
+    end
+
     if delete
       database.remove_user(username)
     else
@@ -332,7 +365,17 @@ class Chef::ResourceDefinitionList::MongoDB
   end
 
   def self.user_exists?(node, username, password, database)
-    connection = get_connection('localhost', node['mongodb']['port'], :op_timeout => 5)
+    # lazy require, to move loading this modules to runtime of the cookbook
+    require 'rubygems'
+    require 'mongo'
+
+    begin
+      connection = Mongo::Connection.new('localhost', node['mongodb']['port'], :op_timeout => op_timeout)
+    rescue Exception => e
+      Chef::Log.warn("Could not connect to database: '#{host}:#{port}', reason #{e}")
+      return
+    end
+
     begin
       connection.db(database).authenticate(username, password)
     rescue
@@ -342,24 +385,24 @@ class Chef::ResourceDefinitionList::MongoDB
 
   private
 
-  def self.get_connection(host, port, opts = {})
-    # lazy require, to move loading this modules to runtime of the cookbook
-    require 'rubygems'
-    require 'mongo'
+  # def self.get_connection(host, port, opts = {})
+  #   # lazy require, to move loading this modules to runtime of the cookbook
+  #   require 'rubygems'
+  #   require 'mongo'
     
-    op_timeout      = opts[:op_timeout] || 5
-    slave_ok        = opts[:slave_ok] || false
-    connect_timeout = opts[:connect_timeout] || nil
+  #   op_timeout      = opts[:op_timeout] || 5
+  #   slave_ok        = opts[:slave_ok] || false
+  #   connect_timeout = opts[:connect_timeout] || nil
 
-    begin
-      connection = Mongo::Connection.new(host, port, :op_timeout => op_timeout, :slave_ok => slave_ok, :connect_timeout => connect_timeout)
-      #check connection
-      connection.database_names
-      connection
-    rescue Exception => e
-      Chef::Log.warn("Could not connect to database: '#{host}:#{port}', reason #{e}")
-      return
-    end
-  end
+  #   begin
+  #     connection = Mongo::Connection.new(host, port, :op_timeout => op_timeout, :slave_ok => slave_ok, :connect_timeout => connect_timeout)
+  #     #check connection
+  #     connection.database_names
+  #     connection
+  #   rescue Exception => e
+  #     Chef::Log.warn("Could not connect to database: '#{host}:#{port}', reason #{e}")
+  #     return
+  #   end
+  # end
 
 end
