@@ -22,7 +22,7 @@
 define :mongodb_instance, :mongodb_type => "mongod" , :action => [:enable, :start],
     :bind_ip => nil, :port => 27017 , :logpath => "/var/log/mongodb",
     :dbpath => "/data", :configserver => [],
-    :replicaset => nil, :enable_rest => false, :smallfiles => false, :notifies => [], :auth => false do
+    :replicaset => nil, :enable_rest => false, :smallfiles => false, :notifies => [] do
 
   include_recipe "mongodb::default"
 
@@ -39,8 +39,6 @@ define :mongodb_instance, :mongodb_type => "mongod" , :action => [:enable, :star
   dbpath = params[:dbpath]
 
   configserver_nodes = params[:configserver]
-  
-  auth = params[:auth]
   
   replicaset = params[:replicaset]
 
@@ -94,23 +92,15 @@ define :mongodb_instance, :mongodb_type => "mongod" , :action => [:enable, :star
     notifies :restart, "service[#{name}]"
   end
 
-  # config file
-  # template node['mongodb']['dbconfig_file'] do
-  #   cookbook node['mongodb']['template_cookbook']
-  #   source node['mongodb']['dbconfig_file_template']
-  #   group node['mongodb']['root_group']
-  #   owner "root"
-  #   mode "0644"
-  #   variables({
-  #     "auth" => auth
-  #   })
-  #   action :create
-  #   notifies :restart, "service[#{name}]"
-  # end
-  mongodb_config "init_config" do
-    auth auth
-    service name
-    action :update
+  #config file
+  template node['mongodb']['dbconfig_file'] do
+    cookbook node['mongodb']['template_cookbook']
+    source node['mongodb']['dbconfig_file_template']
+    group node['mongodb']['root_group']
+    owner "root"
+    mode "0644"
+    action :create
+    notifies :restart, "service[#{name}]"
   end
 
   # log dir [make sure it exists]

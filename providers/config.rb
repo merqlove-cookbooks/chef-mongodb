@@ -19,17 +19,22 @@
 #
 
 action :update do
-  p new_resource.auth
+  auth = new_resource.auth
+  name = new_resource.name
+  service_name = new_resource.service_name
+
   template node['mongodb']['dbconfig_file'] do
     cookbook node['mongodb']['template_cookbook']
     source node['mongodb']['dbconfig_file_template']
     group node['mongodb']['root_group']
     owner "root"
     mode "0644"
-    variables({
-      :auth => new_resource.auth
+    variables ({
+      auth: auth
     })
     action :create
-    notifies :restart, "service[#{new_resource.service}]", :delayed
+    notifies :restart, "service[#{service_name}]", :delayed
   end
+
+  new_resource.updated_by_last_action(true)
 end

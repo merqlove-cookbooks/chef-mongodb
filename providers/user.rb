@@ -21,13 +21,16 @@
 action :add do
   unless Chef::MongoDB.user_exists?(node, new_resource.name, new_resource.password, new_resource.database)
     Chef::MongoDB.configure_user(node, new_resource.name, new_resource.password, new_resource.database)
+    new_resource.updated_by_last_action(true)
   end
 end
 
 action :delete do
   Chef::MongoDB.configure_user(node, new_resource.name, new_resource.password, new_resource.database, :delete => true)
+  new_resource.updated_by_last_action(true)
 end
 
 action :update do
   Chef::MongoDB.configure_user(node, new_resource.name, new_resource.password, new_resource.database)
+  new_resource.updated_by_last_action(true)
 end
