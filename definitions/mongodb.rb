@@ -107,7 +107,7 @@ define :mongodb_instance, :mongodb_type => "mongod" , :action => [:enable, :star
   #   action :create
   #   notifies :restart, "service[#{name}]"
   # end
-  mongodb_config do
+  mongodb_config "init_config" do
     auth auth
     service name
     action :update
