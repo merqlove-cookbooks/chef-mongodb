@@ -336,7 +336,6 @@ class Chef::ResourceDefinitionList::MongoDB
       retry
     end
   end
-<<<<<<< HEAD
 
   # User interface
   def self.configure_user(node, username, password, database, delete = false)
@@ -400,6 +399,4 @@ class Chef::ResourceDefinitionList::MongoDB
   #   end
   # end
 
-=======
->>>>>>> upstream/master
 end
