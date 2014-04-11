@@ -4,9 +4,8 @@
 
 <%- if @auth %>
 auth = <%= @auth %>
-<%- end %>
-<%- node['mongodb']['config'].to_hash.keys.sort.each do |key| %>
-    <%- unless node['mongodb']['config'][key].nil? %>
-<%= key %> = <%= node['mongodb']['config'][key] %>
+<%- @config.to_hash.keys.sort.each do |key| %>
+    <%- if not @config[key].nil? %>
+<%= key %> = <%= @config[key] %>
     <% end %>
 <%- end %>
