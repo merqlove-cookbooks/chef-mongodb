@@ -4,6 +4,7 @@
 
 <%- if @auth %>
 auth = <%= @auth %>
+<%- end %>
 <%- @config.to_hash.keys.sort.each do |key| %>
     <%- if not @config[key].nil? %>
 <%= key %> = <%= @config[key] %>
