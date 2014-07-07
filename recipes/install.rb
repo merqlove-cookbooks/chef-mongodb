@@ -1,5 +1,5 @@
 # install the 10gen repo if necessary
-include_recipe 'mongodb::10gen_repo' if node['mongodb']['install_method'] == '10gen'
+include_recipe 'mongodb::10gen_repo' if %w(10gen mongodb-org).include?(node['mongodb']['install_method'])
 
 # prevent-install defaults, but don't overwrite
 file node['mongodb']['sysconfig_file'] do
@@ -52,7 +52,7 @@ case node['platform_family']
 when 'debian'
   # this options lets us bypass complaint of pre-existing init file
   # necessary until upstream fixes ENABLE_MONGOD/DB flag
-  packager_opts = '-o Dpkg::Options::="--force-confold"'
+  packager_opts = '-o Dpkg::Options::="--force-confold" --force-yes'
 when 'rhel'
   # Add --nogpgcheck option when package is signed
   # see: https://jira.mongodb.org/browse/SERVER-8770
