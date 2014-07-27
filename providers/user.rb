@@ -1,36 +1,70 @@
-#
-# Cookbook Name:: mongodb
-# Provider:: user 
-#
-# Authors:
-#       BK Box <bk@theboxes.org>
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+def user_exists?(username, connection)
+  connection['admin']['system.users'].find(:user => username).count > 0
+end
 
-action :add do
-  unless Chef::MongoDB.user_exists?(node, new_resource.name, new_resource.password, new_resource.database)
-    Chef::MongoDB.configure_user(node, new_resource.name, new_resource.password, new_resource.database)
-    new_resource.updated_by_last_action(true)
+def add_user(username, password, roles = [], database)
+  require 'rubygems'
+  require 'mongo'
+
+  connection = retrieve_db
+  admin = connection.db('admin')
+  db = connection.db(database)
+
+  # Must authenticate as a userAdmin after an admin user has been created
+  # this will fail on the first attempt, but user will still be created
+  # because of the localhost exception
+  begin
+    admin.authenticate(@new_resource.connection['admin']['username'], @new_resource.connection['admin']['password'])
+  rescue Mongo::AuthenticationError => e
+    Chef::Log.warn("Unable to authenticate as admin user. If this is a fresh install, ignore warning: #{e}")
+  end
+
+  # Create the user if they don't exist
+  # Update the user if they already exist
+  db.add_user(username, password, false, :roles => roles)
+  Chef::Log.info("Created or updated user #{username} on #{database}")
+end
+
+# Drop a user from the database specified
+def delete_user(username, database)
+  require 'rubygems'
+  require 'mongo'
+
+  connection = retrieve_db
+  admin = connection.db('admin')
+  db = connection.db(database)
+
+  admin.authenticate(@new_resource.connection['admin']['username'], @new_resource.connection['admin']['password'])
+
+  if user_exists?(username, connection)
+    db.remove_user(username)
+    Chef::Log.info("Deleted user #{username} on #{database}")
+  else
+    Chef::Log.warn("Unable to delete non-existent user #{username} on #{database}")
   end
 end
 
-action :delete do
-  Chef::MongoDB.configure_user(node, new_resource.name, new_resource.password, new_resource.database, :delete => true)
-  new_resource.updated_by_last_action(true)
+# Get the MongoClient connection
+def retrieve_db
+  require 'rubygems'
+  require 'mongo'
+
+  Mongo::MongoClient.new(
+    @new_resource.connection['host'],
+    @new_resource.connection['port'],
+    :connect_timeout => 15,
+    :slave_ok => true
+  )
 end
 
-action :update do
-  Chef::MongoDB.configure_user(node, new_resource.name, new_resource.password, new_resource.database)
-  new_resource.updated_by_last_action(true)
+action :add do
+  add_user(new_resource.username, new_resource.password, new_resource.roles, new_resource.database)
+end
+
+action :delete do
+  delete_user(new_resource.username, new_resource.database)
+end
+
+action :modify do
+  add_user(new_resource.username, new_resource.password, new_resource.roles, new_resource.database)
 end
